@@ -1,0 +1,27 @@
+version: "3.0"
+
+services:
+  db:
+    image: postgres:12.1-alpine
+    container_name: db
+    hostname: db
+    restart: always
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    env_file:
+      - ./docker/environments
+#    environment:
+#      - POSTGRES_DB=postgres
+#      - POSTGRES_USER=postgres
+#      - POSTGRES_PASSWORD=postgres
+  web:
+    build: .
+    container_name: web
+    hostname: web
+    command: sh ./docker/start.sh
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
