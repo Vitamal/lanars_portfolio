@@ -2,6 +2,7 @@
 FROM python:3
 ENV PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get install -y netcat
+RUN pip install Pillow
 WORKDIR /code
 COPY requirements.txt /code/
 RUN pip install -r requirements.txt

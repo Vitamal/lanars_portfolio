@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-#while ! nc -z localhost 5432; do sleep 1; done;
 #waiting for postgres
 #until $(nc -z ${DB_HOST} ${DB_PORT})
 #do
