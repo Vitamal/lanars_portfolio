@@ -3,13 +3,13 @@ from api.models import Portfolio
 from api.serializers.create_update_premixin import CreateUpdatePreMixin
 
 
-class PortfolioSerializer(serializers.ModelSerializer):
+class PortfolioSerializer(CreateUpdatePreMixin, serializers.ModelSerializer):
     class Meta:
         model = Portfolio
         fields = ['name', 'description']
 
 
-class PortfolioListSerializer(CreateUpdatePreMixin, serializers.ModelSerializer):
+class PortfolioListSerializer(serializers.ModelSerializer):
     created_by = serializers.ReadOnlyField(
         source='created_by.username')
 

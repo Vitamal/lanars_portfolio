@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api.models import Image, Comment
+from api.models import Image
 from api.serializers.create_update_premixin import CreateUpdatePreMixin
 
 
