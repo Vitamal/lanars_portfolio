@@ -8,7 +8,7 @@ class ImageSerializer(CreateUpdatePreMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Image
-        fields = ['id', 'name', 'description', 'portfolio', 'comments']
+        fields = ['id', 'name', 'description', 'portfolio', 'comments', 'created_by', 'created_datetime', 'upload']
 
 
 class ImageListSerializer(serializers.ModelSerializer):
