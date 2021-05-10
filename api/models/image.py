@@ -16,3 +16,6 @@ class Image(BaseModel):
 
     class Meta:
         ordering = ['created_datetime']
+
+    def __str__(self):
+        return '%s: %s' % (self.name, self.description)

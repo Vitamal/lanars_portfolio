@@ -1,12 +1,15 @@
 from rest_framework import serializers
 from api.models import Portfolio
+from api.serializers import ImageSerializer
 from api.serializers.create_update_premixin import CreateUpdatePreMixin
 
 
 class PortfolioSerializer(CreateUpdatePreMixin, serializers.ModelSerializer):
+    images = ImageSerializer(many=True, read_only=True)
+
     class Meta:
         model = Portfolio
-        fields = ['name', 'description']
+        fields = ['name', 'description', 'images']
 
 
 class PortfolioListSerializer(serializers.ModelSerializer):

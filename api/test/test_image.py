@@ -11,7 +11,7 @@ class TestList(test.TestCase, api_test_mixins.ListApiTestMixin):
     def test_not_authenticated(self):
         mommy.make('api.Image')
         response = self.make_get_request()
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 401)
 
     def test_ok_user(self):
         requestuser = self.make_user()
@@ -73,7 +73,7 @@ class TestRetrieve(test.TestCase, api_test_mixins.RetrieveApiTestMixin):
     def test_not_authenticated(self):
         image = mommy.make('api.Image')
         response = self.make_get_request(viewkwargs={'pk': image.id})
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 401)
 
     def test_ok_user(self):
         requestuser = self.make_user()
@@ -85,18 +85,21 @@ class TestRetrieve(test.TestCase, api_test_mixins.RetrieveApiTestMixin):
     def test_ok_response_data(self):
         requestuser = self.make_user()
         portfolio = mommy.make('api.Portfolio', name='Hotels')
-        picture = self.generate_photo_file()
+        picture = self.generate_image_file('file.jpg')
         kwargs = {
             'id': 1,
             'name': 'Name',
             'description': 'some description',
             'portfolio': portfolio,
-            'upload': picture.name
+            'upload': picture.name,
+            'created_by': requestuser,
         }
 
         image = mommy.make('api.Image', **kwargs)
         comments = mommy.make('api.Comment', image=image, comment='some comment')
+
         response = self.make_get_request(viewkwargs={'pk': image.id}, requestuser=requestuser)
+
         self.assertEqual(response.status_code, 200)
         self.assertEqual(set(response.data.keys()), {
             'created_datetime',
@@ -108,7 +111,6 @@ class TestRetrieve(test.TestCase, api_test_mixins.RetrieveApiTestMixin):
             'id',
             'comments',
         })
-        print(dir(picture))
         self.assertEqual(response.data.get('id'), image.id)
         self.assertEqual(response.data.get('name'), 'Name')
         self.assertEqual(response.data.get('description'), 'some description')
@@ -117,36 +119,66 @@ class TestRetrieve(test.TestCase, api_test_mixins.RetrieveApiTestMixin):
         self.assertEqual(response.data.get('upload'), f'http://testserver/media/{picture.name}')
 
 
-# class TestPatch(test.TestCase, api_test_mixins.PatchApiTestMixin):
-#     apiview_class = CustomerViewSet
-#
-#     def test_not_authenticated(self):
-#         customer = mommy.make('buyclip_core.Customer')
-#         response = self.make_patch_request(viewkwargs={'pk': customer.id},
-#                                            data={'name': 'New name'})
-#         self.assertEqual(response.status_code, 403)
-#
-#     def test_no_customer(self):
-#         requestuser = self.make_superuser()
-#         response = self.make_patch_request(viewkwargs={'pk': 1}, requestuser=requestuser,
-#                                            data={'name': 'New name'})
-#         self.assertEqual(response.status_code, 404)
-#
-#     def test_ok_superuser(self):
-#         requestuser = self.make_superuser()
-#         customer = mommy.make('buyclip_core.Customer')
-#         response = self.make_patch_request(viewkwargs={'pk': customer.id}, requestuser=requestuser,
-#                                            data={'comment': 'comment'})
-#         self.assertEqual(response.status_code, 200)
-#         self.assertEqual(response.data.get('id'), customer.id)
-#
-#     def test_ok_user(self):
-#         requestuser = self.make_user()
-#         customer = mommy.make('buyclip_core.Customer')
-#         response = self.make_patch_request(viewkwargs={'pk': customer.id}, requestuser=requestuser,
-#                                            data={'comment': 'comment'})
-#         self.assertEqual(response.status_code, 200)
-#         self.assertEqual(response.data.get('id'), customer.id)
+class TestPatch(test.TestCase, api_test_mixins.PatchApiTestMixin):
+    apiview_class = ImageViewSet
+
+    def test_not_authenticated(self):
+        image = mommy.make('api.Image')
+        response = self.make_get_request(viewkwargs={'pk': image.id})
+        self.assertEqual(response.status_code, 401)
+
+    def test_ok_user(self):
+        requestuser = self.make_user()
+        image = mommy.make('api.Image')
+        response = self.make_get_request(viewkwargs={'pk': image.id}, requestuser=requestuser)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data.get('id'), image.id)
+
+    def test_ok_response_data(self):
+        requestuser = self.make_user()
+        portfolio = mommy.make('api.Portfolio', name='Hotels')
+        picture = self.generate_image_file('hotel_1.jpg')
+        kwargs = {
+            'id': 1,
+            'name': 'Name',
+            'description': 'some description',
+            'portfolio': portfolio,
+            'upload': picture.name,
+            'created_by': requestuser,
+        }
+
+        image = mommy.make('api.Image', **kwargs)
+        comments = mommy.make('api.Comment', image=image, comment='some comment')
+
+        portfolio_2 = mommy.make('api.Portfolio', name='Films')
+        request_data = {
+            'name': 'Other_Name',
+            'description': 'other description',
+            # 'portfolio': portfolio_2,
+            'upload': picture.name,
+            'created_by': requestuser,
+        }
+
+        response = self.make_patch_request(viewkwargs={'pk': image.id}, requestuser=requestuser, data=request_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(set(response.data.keys()), {
+            'created_datetime',
+            'created_by',
+            'name',
+            'description',
+            'portfolio',
+            'upload',
+            'id',
+            'comments',
+        })
+        self.assertEqual(response.data.get('id'), image.id)
+        self.assertEqual(response.data.get('name'), 'Name')
+        self.assertEqual(response.data.get('description'), 'some description')
+        self.assertEqual(response.data.get('portfolio'), portfolio.id)
+        self.assertEqual(response.data.get('comments'), [comments.id])
+        self.assertEqual(response.data.get('upload'), f'http://testserver/media/{picture.name}')
+
 #
 #     def test_ok_response_data(self):
 #         requestuser = self.make_user()
