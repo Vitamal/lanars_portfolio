@@ -41,7 +41,6 @@ class TestList(test.TestCase, api_test_mixins.ListApiTestMixin):
             }
         )
         self.assertEqual(response.status_code, 200)
-        print('=====', response.data)
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(set(self.get_id_list_form_api_response(response)), {image.id})
 
@@ -180,7 +179,6 @@ class TestPatch(test.TestCase, api_test_mixins.PatchApiTestMixin):
         }
 
         response = self.make_patch_request(viewkwargs={'pk': image.id}, requestuser=requestuser, data=request_data)
-
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data.get('id'), image.id)
         self.assertEqual(response.data.get('name'), 'Other_Name')

@@ -8,7 +8,7 @@ def portfolio_directory_path(instance, filename):
 
 
 class Image(BaseModel):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     description = models.TextField()
     portfolio = models.ForeignKey(Portfolio, on_delete=models.CASCADE, related_name='images')
     upload = models.ImageField(
