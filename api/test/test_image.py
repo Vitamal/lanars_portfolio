@@ -1,8 +1,16 @@
+import shutil
+import tempfile
+
 from django import test
+from django.test import override_settings
 from model_mommy import mommy
 
 from . import api_test_mixins
+from ..models import Image
 from ..viewsets import ImageViewSet
+
+# It creates a directory at /tmp/ and set it’s name to the MEDIA_ROOT variable.
+MEDIA_ROOT = tempfile.mkdtemp()
 
 
 class TestList(test.TestCase, api_test_mixins.ListApiTestMixin):
@@ -85,7 +93,7 @@ class TestRetrieve(test.TestCase, api_test_mixins.RetrieveApiTestMixin):
     def test_ok_response_data(self):
         requestuser = self.make_user()
         portfolio = mommy.make('api.Portfolio', name='Hotels')
-        picture = self.generate_image_file('file.jpg')
+        picture = self.generate_image_file('file.png')
         kwargs = {
             'id': 1,
             'name': 'Name',
@@ -119,18 +127,31 @@ class TestRetrieve(test.TestCase, api_test_mixins.RetrieveApiTestMixin):
         self.assertEqual(response.data.get('upload'), f'http://testserver/media/{picture.name}')
 
 
+@override_settings(MEDIA_ROOT=MEDIA_ROOT)
 class TestPatch(test.TestCase, api_test_mixins.PatchApiTestMixin):
     apiview_class = ImageViewSet
 
+    # to delete the temporery directory at MADIA_ROOT
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
+
     def test_not_authenticated(self):
         image = mommy.make('api.Image')
-        response = self.make_get_request(viewkwargs={'pk': image.id})
+        response = self.make_patch_request(viewkwargs={'pk': image.id})
         self.assertEqual(response.status_code, 401)
+
+    def test_nok_user(self):
+        requestuser = self.make_user()
+        image = mommy.make('api.Image')
+        response = self.make_patch_request(viewkwargs={'pk': image.id}, requestuser=requestuser)
+        self.assertEqual(response.status_code, 403)
 
     def test_ok_user(self):
         requestuser = self.make_user()
-        image = mommy.make('api.Image')
-        response = self.make_get_request(viewkwargs={'pk': image.id}, requestuser=requestuser)
+        image = mommy.make('api.Image', created_by=requestuser)
+        response = self.make_patch_request(viewkwargs={'pk': image.id}, requestuser=requestuser)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data.get('id'), image.id)
 
@@ -148,128 +169,87 @@ class TestPatch(test.TestCase, api_test_mixins.PatchApiTestMixin):
         }
 
         image = mommy.make('api.Image', **kwargs)
-        comments = mommy.make('api.Comment', image=image, comment='some comment')
+        picture_2 = self.generate_image_file('hotel_2.jpg')
 
-        portfolio_2 = mommy.make('api.Portfolio', name='Films')
+        portfolio_2 = mommy.make('api.Portfolio', name='Films', created_by=requestuser)
         request_data = {
             'name': 'Other_Name',
-            'description': 'other description',
-            # 'portfolio': portfolio_2,
-            'upload': picture.name,
-            'created_by': requestuser,
+            'description': 'other_description',
+            'upload': picture_2,
+            'portfolio': portfolio_2.id,
         }
 
         response = self.make_patch_request(viewkwargs={'pk': image.id}, requestuser=requestuser, data=request_data)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(set(response.data.keys()), {
-            'created_datetime',
-            'created_by',
-            'name',
-            'description',
-            'portfolio',
-            'upload',
-            'id',
-            'comments',
-        })
         self.assertEqual(response.data.get('id'), image.id)
-        self.assertEqual(response.data.get('name'), 'Name')
-        self.assertEqual(response.data.get('description'), 'some description')
-        self.assertEqual(response.data.get('portfolio'), portfolio.id)
-        self.assertEqual(response.data.get('comments'), [comments.id])
-        self.assertEqual(response.data.get('upload'), f'http://testserver/media/{picture.name}')
+        self.assertEqual(response.data.get('name'), 'Other_Name')
+        self.assertEqual(response.data.get('description'), 'other_description')
+        self.assertEqual(response.data.get('portfolio'), portfolio_2.id)
+        self.assertEqual(response.data.get('upload'), f'http://testserver/media/user_10/Films/{picture_2.name}')
 
-#
-#     def test_ok_response_data(self):
-#         requestuser = self.make_user()
-#         kwargs = {
-#             'id': 1,
-#             'name': 'Name',
-#             'email': 'abra@cadabra.com',
-#             'extra_data': {'some': 'data'},
-#             'phone_number': '1234',
-#             'address': 'some_address'
-#         }
-#
-#         customer = mommy.make('buyclip_core.Customer', **kwargs)
-#         request_data = {
-#             'name': 'new_Name',
-#             'email': 'new@new.com',
-#             'extra_data': {'some': 'other'},
-#             'phone_number': '5678',
-#             'address': 'other_address'
-#         }
-#
-#         response = self.make_patch_request(viewkwargs={'pk': customer.id}, requestuser=requestuser,
-#                                            data=request_data)
-#         self.assertEqual(response.status_code, 200)
-#         self.assertEqual(set(response.data.keys()), {
-#             'last_updated_datetime',
-#             'created_datetime',
-#             'last_updated_by',
-#             'created_by',
-#             'extra_data',
-#             'name',
-#             'email',
-#             'phone_number',
-#             'address',
-#             'id',
-#         })
-#         self.assertEqual(response.data.get('id'), customer.id)
-#         self.assertEqual(response.data.get('name'), 'new_Name')
-#         self.assertEqual(response.data.get('email'), 'new@new.com')
-#         self.assertEqual(response.data.get('extra_data'), {'some': 'other'})
-#         self.assertEqual(response.data.get('phone_number'), '5678')
-#         self.assertEqual(response.data.get('address'), 'other_address')
-#
-#
-# class TesCreate(test.TestCase, api_test_mixins.CreateApiTestMixin):
-#     apiview_class = CustomerViewSet
-#
-#     def test_not_authenticated(self):
-#         response = self.make_post_request(data={})
-#         self.assertEqual(response.status_code, 403)
-#
-#     def test_ok(self):
-#         requestuser = self.make_user()
-#         data = {
-#             'name': 'Name',
-#             'email': 'abra@cadabra.com',
-#             'extra_data': {'some': 'data'},
-#             'phone_number': '1234',
-#             'address': 'some_address'
-#         }
-#         self.assertEqual(Customer.objects.count(), 0)
-#         response = self.make_post_request(data=data, requestuser=requestuser)
-#         self.assertEqual(response.status_code, 201)
-#         self.assertEqual(Customer.objects.count(), 1)
-#         customer = Customer.objects.first()
-#         self.assertEqual(customer.name, 'Name')
-#         self.assertEqual(customer.email, 'abra@cadabra.com')
-#         self.assertEqual(customer.extra_data, {'some': 'data'})
-#         self.assertEqual(customer.phone_number, '1234')
-#         self.assertEqual(customer.address, 'some_address')
-#
-#
-# class TesDelete(test.TestCase, api_test_mixins.DeleteApiTestMixin):
-#     apiview_class = CustomerViewSet
-#
-#     def test_not_authenticated(self):
-#         customer = mommy.make('buyclip_core.Customer')
-#         response = self.make_delete_request(viewkwargs={'pk': customer.id})
-#         self.assertEqual(response.status_code, 403)
-#
-#     def test_no_customer(self):
-#         requestuser = self.make_superuser()
-#         response = self.make_delete_request(viewkwargs={'pk': 1},
-#                                             requestuser=requestuser)
-#         self.assertEqual(response.status_code, 404)
-#
-#     def test_ok_destroy(self):
-#         requestuser = self.make_user()
-#         customer = mommy.make('buyclip_core.Customer')
-#         response = self.make_delete_request(viewkwargs={'pk': customer.id},
-#                                             requestuser=requestuser)
-#         self.assertEqual(response.status_code, 204)
-#         with self.assertRaises(Customer.DoesNotExist):
-#             customer.refresh_from_db()
+
+@override_settings(MEDIA_ROOT=MEDIA_ROOT)
+class TesCreate(test.TestCase, api_test_mixins.CreateApiTestMixin):
+    apiview_class = ImageViewSet
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
+
+    def test_not_authenticated(self):
+        response = self.make_post_request(data={})
+        self.assertEqual(response.status_code, 401)
+
+
+    def test_ok(self):
+        requestuser = self.make_user()
+        portfolio = mommy.make('api.Portfolio', name='Hotels')
+        picture = self.generate_image_file('hotel_1.jpg')
+        data = {
+            'name': 'Name',
+            'description': 'some_description',
+            'portfolio': portfolio.id,
+            'upload': picture,
+        }
+        self.assertEqual(Image.objects.count(), 0)
+        response = self.make_post_request(data=data, requestuser=requestuser)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Image.objects.count(), 1)
+        image = Image.objects.first()
+        self.assertEqual(image.name, 'Name')
+        self.assertEqual(image.description, 'some_description')
+        self.assertEqual(image.portfolio.name, 'Hotels')
+        self.assertEqual(response.data.get('upload'), f'http://testserver/media/user_1/Hotels/{picture.name}')
+
+
+class TesDelete(test.TestCase, api_test_mixins.DeleteApiTestMixin):
+    apiview_class = ImageViewSet
+
+    def test_not_authenticated(self):
+        image = mommy.make('api.Image')
+        response = self.make_delete_request(viewkwargs={'pk': image.id})
+        self.assertEqual(response.status_code, 401)
+
+    def test_nok_user(self):
+        requestuser = self.make_user()
+        image = mommy.make('api.Image')
+        response = self.make_delete_request(viewkwargs={'pk': image.id}, requestuser=requestuser)
+        self.assertEqual(response.status_code, 403)
+
+
+    def test_no_customer(self):
+        requestuser = self.make_user()
+        response = self.make_delete_request(viewkwargs={'pk': 1},
+                                            requestuser=requestuser)
+        self.assertEqual(response.status_code, 404)
+
+    def test_ok_destroy(self):
+        requestuser = self.make_user()
+        image = mommy.make('api.Image', created_by=requestuser)
+        response = self.make_delete_request(viewkwargs={'pk': image.id},
+                                            requestuser=requestuser)
+        self.assertEqual(response.status_code, 204)
+        with self.assertRaises(Image.DoesNotExist):
+            image.refresh_from_db()

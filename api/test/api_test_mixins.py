@@ -40,9 +40,9 @@ class ApiTestMixin:
         if requestuser:
             force_authenticate(request, requestuser)
 
-    def make_request(self, method, viewkwargs=None, api_url='/test/', data=None, requestuser=None):
+    def make_request(self, method, viewkwargs=None, api_url='/test/', data=None, requestuser=None, format='json'):
         factory = APIRequestFactory()
-        request = getattr(factory, method)(api_url, format='json', data=data)
+        request = getattr(factory, method)(api_url, format=format, data=data)
         viewkwargs = viewkwargs or {}
         if requestuser:
             # request.user = requestuser or self.get_default_requestuser()
@@ -51,30 +51,30 @@ class ApiTestMixin:
         response.render()
         return response
 
-    def make_get_request(self, viewkwargs=None, api_url='/test/', data=None, requestuser=None):
+    def make_get_request(self, viewkwargs=None, api_url='/test/', data=None, requestuser=None, format='json'):
         return self.make_request(method='get', viewkwargs=viewkwargs,
                                  api_url=api_url, data=data,
-                                 requestuser=requestuser)
+                                 requestuser=requestuser, format=format)
 
-    def make_post_request(self, viewkwargs=None, api_url='/test/', data=None, requestuser=None):
+    def make_post_request(self, viewkwargs=None, api_url='/test/', data=None, requestuser=None, format='multipart'):
         return self.make_request(method='post', viewkwargs=viewkwargs,
                                  api_url=api_url, data=data,
-                                 requestuser=requestuser)
+                                 requestuser=requestuser, format=format)
 
-    def make_put_request(self, viewkwargs=None, api_url='/test/', data=None, requestuser=None):
+    def make_put_request(self, viewkwargs=None, api_url='/test/', data=None, requestuser=None, format='multipart'):
         return self.make_request(method='put', viewkwargs=viewkwargs,
                                  api_url=api_url, data=data,
-                                 requestuser=requestuser)
+                                 requestuser=requestuser, format=format)
 
-    def make_delete_request(self, viewkwargs=None, api_url='/test/', data=None, requestuser=None):
+    def make_delete_request(self, viewkwargs=None, api_url='/test/', data=None, requestuser=None, format='json'):
         return self.make_request(method='delete', viewkwargs=viewkwargs,
                                  api_url=api_url, data=data,
-                                 requestuser=requestuser)
+                                 requestuser=requestuser, format=format)
 
     def get_id_list_form_api_response(self, response):
         return [obj.get('id') for obj in response.data['results']]
 
-    def generate_image_file(self, filename='test.jpg'):
+    def generate_image_file(self, filename='test.png'):
         file = io.BytesIO()
         image = Image.new('RGBA', size=(100, 100), color=(155, 0, 0))
         image.save(file, 'png')
@@ -118,10 +118,10 @@ class PatchApiTestMixin(ApiTestMixin):
             }
         }
 
-    def make_patch_request(self, viewkwargs=None, api_url='/test/', data=None, requestuser=None):
+    def make_patch_request(self, viewkwargs=None, api_url='/test/', data=None, requestuser=None, format='multipart'):
         return self.make_request(method='patch', viewkwargs=viewkwargs,
                                  api_url=api_url, data=data,
-                                 requestuser=requestuser)
+                                 requestuser=requestuser, format=format)
 
 
 class DeleteApiTestMixin(ApiTestMixin):
