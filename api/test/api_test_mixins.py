@@ -74,12 +74,13 @@ class ApiTestMixin:
     def get_id_list_form_api_response(self, response):
         return [obj.get('id') for obj in response.data['results']]
 
-    def generate_image_file(self, filename='test.png'):
+    def generate_image_file(self, filename='test.png', size=100):
         file = io.BytesIO()
         image = Image.new('RGBA', size=(100, 100), color=(155, 0, 0))
         image.save(file, 'png')
         file.name = filename
         file.seek(0)
+        file.size = size
         return file
 
 

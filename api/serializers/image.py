@@ -22,13 +22,15 @@ class ImageSerializer(CreateUpdatePreMixin, serializers.ModelSerializer):
         fields = ['id', 'name', 'description', 'portfolio', 'comments', 'created_by', 'created_datetime', 'upload']
         read_only_fields = ['created_by', 'created_datetime']
 
-    def validate_upload(self, image):
+    def validate_upload(self, upload_image):
         # 4MB
-        if image.size > MAX_FILE_SIZE:
+        if upload_image.size > MAX_FILE_SIZE:
             raise ValidationError("File size too big!")
 
         # if not image.name.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
         #     raise ValidationError("Invalid file type.")
+        return upload_image
+
 
 class ImageListSerializer(serializers.ModelSerializer):
     created_by = serializers.ReadOnlyField(

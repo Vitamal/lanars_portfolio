@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from unittest import mock
 
 from django import test
 from django.test import override_settings
@@ -77,19 +78,19 @@ class TestList(test.TestCase, api_test_mixins.ListApiTestMixin):
 class TestRetrieve(test.TestCase, api_test_mixins.RetrieveApiTestMixin):
     apiview_class = ImageViewSet
 
-    def test_not_authenticated(self):
+    def test_get_image_not_authenticated(self):
         image = mommy.make('api.Image')
         response = self.make_get_request(viewkwargs={'pk': image.id})
         self.assertEqual(response.status_code, 401)
 
-    def test_ok_user(self):
+    def test_get_image_ok_user(self):
         requestuser = self.make_user()
         image = mommy.make('api.Image')
         response = self.make_get_request(viewkwargs={'pk': image.id}, requestuser=requestuser)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data.get('id'), image.id)
 
-    def test_ok_response_data(self):
+    def test_get_image_ok_response_data(self):
         requestuser = self.make_user()
         portfolio = mommy.make('api.Portfolio', name='Hotels')
         picture = self.generate_image_file('file.png')
@@ -136,25 +137,25 @@ class TestPatch(test.TestCase, api_test_mixins.PatchApiTestMixin):
         shutil.rmtree(MEDIA_ROOT, ignore_errors=True)
         super().tearDownClass()
 
-    def test_not_authenticated(self):
+    def test_image_update_not_authenticated(self):
         image = mommy.make('api.Image')
         response = self.make_patch_request(viewkwargs={'pk': image.id})
         self.assertEqual(response.status_code, 401)
 
-    def test_nok_user(self):
+    def test_image_update_nok_user(self):
         requestuser = self.make_user()
         image = mommy.make('api.Image')
         response = self.make_patch_request(viewkwargs={'pk': image.id}, requestuser=requestuser)
         self.assertEqual(response.status_code, 403)
 
-    def test_ok_user(self):
+    def test_image_update_ok_user(self):
         requestuser = self.make_user()
         image = mommy.make('api.Image', created_by=requestuser)
         response = self.make_patch_request(viewkwargs={'pk': image.id}, requestuser=requestuser)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data.get('id'), image.id)
 
-    def test_ok_response_data(self):
+    def test_image_update_ok_response_data(self):
         requestuser = self.make_user()
         portfolio = mommy.make('api.Portfolio', name='Hotels')
         picture = self.generate_image_file('hotel_1.jpg')
@@ -184,7 +185,7 @@ class TestPatch(test.TestCase, api_test_mixins.PatchApiTestMixin):
         self.assertEqual(response.data.get('name'), 'Other_Name')
         self.assertEqual(response.data.get('description'), 'other_description')
         self.assertEqual(response.data.get('portfolio'), portfolio_2.id)
-        self.assertEqual(response.data.get('upload'), f'http://testserver/media/user_10/Films/{picture_2.name}')
+        self.assertEqual(response.data.get('upload'), f'http://testserver/media/user_{requestuser.id}/Films/{picture_2.name}')
 
 
 @override_settings(MEDIA_ROOT=MEDIA_ROOT)
@@ -196,12 +197,11 @@ class TesCreate(test.TestCase, api_test_mixins.CreateApiTestMixin):
         shutil.rmtree(MEDIA_ROOT, ignore_errors=True)
         super().tearDownClass()
 
-    def test_not_authenticated(self):
+    def test_image_create_not_authenticated(self):
         response = self.make_post_request(data={})
         self.assertEqual(response.status_code, 401)
 
-
-    def test_ok(self):
+    def test_image_create_ok(self):
         requestuser = self.make_user()
         portfolio = mommy.make('api.Portfolio', name='Hotels')
         picture = self.generate_image_file('hotel_1.jpg')
@@ -219,31 +219,97 @@ class TesCreate(test.TestCase, api_test_mixins.CreateApiTestMixin):
         self.assertEqual(image.name, 'Name')
         self.assertEqual(image.description, 'some_description')
         self.assertEqual(image.portfolio.name, 'Hotels')
-        self.assertEqual(response.data.get('upload'), f'http://testserver/media/user_1/Hotels/{picture.name}')
+        self.assertEqual(response.data.get('upload'), f'http://testserver/media/user_{requestuser.id}/Hotels/{picture.name}')
+
+
+    def test_image_create_without_name(self):
+        requestuser = self.make_user()
+        portfolio = mommy.make('api.Portfolio', name='Hotels')
+        picture = self.generate_image_file('hotel_1.jpg')
+        data = {
+            'description': 'some_description',
+            'portfolio': portfolio.id,
+            'upload': picture,
+        }
+        response = self.make_post_request(data=data, requestuser=requestuser)
+        self.assertEqual(response.status_code, 400)
+
+    def test_image_create_without_portfolio(self):
+        requestuser = self.make_user()
+        # portfolio = mommy.make('api.Portfolio', name='Hotels')
+        picture = self.generate_image_file('hotel_1.jpg')
+        data = {
+            'name': 'Name',
+            'description': 'some_description',
+            # 'portfolio': portfolio.id,
+            'upload': picture,
+        }
+        response = self.make_post_request(data=data, requestuser=requestuser)
+        self.assertEqual(response.status_code, 400)
+
+    def test_image_create_without_description(self):
+        requestuser = self.make_user()
+        portfolio = mommy.make('api.Portfolio', name='Hotels')
+        picture = self.generate_image_file('hotel_1.jpg')
+        data = {
+            'name': 'Name',
+            # 'description': 'some_description',
+            'portfolio': portfolio.id,
+            'upload': picture,
+        }
+        response = self.make_post_request(data=data, requestuser=requestuser)
+        self.assertEqual(response.status_code, 400)
+
+    def test_image_create_without_upload(self):
+        requestuser = self.make_user()
+        portfolio = mommy.make('api.Portfolio', name='Hotels')
+        picture = self.generate_image_file('hotel_1.jpg')
+        data = {
+            'name': 'Name',
+            'description': 'some_description',
+            'portfolio': portfolio.id,
+            # 'upload': picture,
+        }
+        response = self.make_post_request(data=data, requestuser=requestuser)
+        self.assertEqual(response.status_code, 400)
+
+    def test_image_create_with_too_big_upload_file(self):
+        requestuser = self.make_user()
+        portfolio = mommy.make('api.Portfolio', name='Hotels')
+        picture = self.generate_image_file('hotel_1.jpg')
+        data = {
+            'name': 'Name',
+            'description': 'some_description',
+            'portfolio': portfolio.id,
+            'upload': picture,
+        }
+        with mock.patch('api.serializers.image.MAX_FILE_SIZE', 100):
+            response = self.make_post_request(data=data, requestuser=requestuser)
+        self.assertEqual(response.status_code, 400)
+
 
 
 class TesDelete(test.TestCase, api_test_mixins.DeleteApiTestMixin):
     apiview_class = ImageViewSet
 
-    def test_not_authenticated(self):
+    def test_image_delete_not_authenticated(self):
         image = mommy.make('api.Image')
         response = self.make_delete_request(viewkwargs={'pk': image.id})
         self.assertEqual(response.status_code, 401)
 
-    def test_nok_user(self):
+    def test_image_delete_nok_user(self):
         requestuser = self.make_user()
         image = mommy.make('api.Image')
         response = self.make_delete_request(viewkwargs={'pk': image.id}, requestuser=requestuser)
         self.assertEqual(response.status_code, 403)
 
-
-    def test_no_customer(self):
+    def test_image_delete_no_image(self):
         requestuser = self.make_user()
         response = self.make_delete_request(viewkwargs={'pk': 1},
                                             requestuser=requestuser)
         self.assertEqual(response.status_code, 404)
 
-    def test_ok_destroy(self):
+    def test_image_delete_ok_destroy(self):
         requestuser = self.make_user()
         image = mommy.make('api.Image', created_by=requestuser)
         response = self.make_delete_request(viewkwargs={'pk': image.id},
